@@ -4,25 +4,82 @@ author: "Henry Oliver"
 format: html
 ---
 
+1) Load packages and data
 ```{r}
-
+library(tidyverse)
+library(janitor)
+library(sf) # vector handling
+library(terra) # raster handling
+library(tidyverse)
+library(tmap) # map making
+library(spData) # spatial data
+library(spDataLarge) # spatial data
+library(viridisLite)
+library(stars)
 ```
 
 
 
 ```{r}
 
+# nightlight data for February 7, tile h08v05
+nl_feb7_05 <- read_stars("data/VNP46A1/VNP46A1.A2021038.h08v05.001.2021039064328.tif")
+
+# nightlight data for February 7, tile h08v06
+nl_feb7_06 <- read_stars("data/VNP46A1/VNP46A1.A2021038.h08v06.001.2021039064329.tif")
+
+# nightlight data for February 16, tile h08v05
+nl_feb16_05 <- read_stars("data/VNP46A1/VNP46A1.A2021047.h08v05.001.2021048091106.tif")
+# nightlight data for February 16, tile h08v06
+nl_feb16_06 <- read_stars("data/VNP46A1/VNP46A1.A2021047.h08v06.001.2021048091105.tif")
+
+
+```
+
+```{r}
+# Check dimensions
+if (all(dim(nl_feb7_06) == dim(nl_feb16_05)) && 
+    all(dim(nl_feb7_06) == dim(nl_feb16_06)) &&
+    all(dim(nl_feb7_06) == dim(nl_feb7_05))) {
+  print("All rasters have the same dimensions")
+} else {
+  print("Rasters do not have the same dimensions")
+}
+
+# Check resolution
+if (all(st_res(nl_feb7_06) == st_res(nl_feb16_05)) && 
+    all(st_res(nl_feb7_06) == st_res(nl_feb16_06)) &&
+    all(st_res(nl_feb7_06) == st_res(nl_feb7_05))) {
+  print("All rasters have the same resolution")
+} else {
+  print("Rasters do not have the same resolution")
+}
+
+
+# Check bands
+# What 
+
+
+# Warmp if necessary
+
 ```
 
 
-
 ```{r}
+# Confirm CRS matches
+if(crs(nl_feb16_05) == crs(nl_feb7_06)){
+  print("Coordinate reference systems match!")
+}else{
+  warning("Updating crs' to match")
+}
 
 ```
 
 
-
 ```{r}
+# Find the difference between the two rasters for tile 5
+nl_diff_05 <- (nl_feb7_05 - nl_feb16_05)
+
 
 ```
 

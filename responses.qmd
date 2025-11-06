@@ -3,8 +3,10 @@ title: "Texas Blackouts Winter Storm Uri, February, 2021"
 author: "Henry Oliver"
 format: html
 ---
+# Purpose
+The purpose of this anlaysis is to estimate the number of homes in Houston, Texas that experienced a blackout during Winter Storm Uri in February of 2021. 
 
-1) Load packages and data
+# Load Packages
 ```{r}
 #| message: false
 library(tidyverse)
@@ -20,8 +22,8 @@ library(stars)
 library(raster)
 ```
 
-
-## Import data
+# 1) Nightlights over Houston
+#### 1a) Import data
 ```{r}
 #| message: false
 # nightlight data for February 7, tile h08v05
@@ -39,7 +41,7 @@ nl_feb16_06 <- read_stars("data/VNP46A1/VNP46A1.A2021047.h08v06.001.202104809110
 
 ```
 
-## Check dimensions, resolution, and CRS
+#### 1b) Check dimensions, resolution, and CRS
 ```{r}
 # Check dimensions
 if (all(dim(nl_feb7_06) == dim(nl_feb16_05)) && 
@@ -71,7 +73,7 @@ if (crs_match) {
 }
 ```
 
-## Create blackout mask
+#### 1c) Create blackout mask
 ```{r}
 #| warning: false
 # merge rasters
@@ -96,6 +98,25 @@ houston_mask <- st_crop(mask_vector, bounds)
 
 ```
 
+Now that we have our blackout mask, we need to eliminate any lights that are not from housing. In order to do this, we will remove the lights within 200m of all highways
+
+# 2) Texas Highways
+#### 2a) Read data
+```{r}
+# Read in highway data, specify only highways
+highways <- st_read("data/gis_osm_roads_free_1.gpkg", 
+        query = "SELECT * FROM gis_osm_roads_free_1 WHERE fclass='motorway'",
+        quiet = TRUE)
+```
+
+#### 2b) Add a 200m buffer around highways
+```{r}
+# Current CRS degrees are 'degrees', we need them to be meters.
+# Reproject on WGS 84 / UTM Zone 15N
+highways <- st_transform(highways, 32615)
+
+hw_buffer <- st_buffer(highways, dist = 200)
+```
 
 
 

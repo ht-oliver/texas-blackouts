@@ -1,8 +1,12 @@
 # Functions
 
-# Check class
-class_fun = function(x) {
-  result <- print(class(x))
-  return(result)
-}
+# reclassify mask
 
+
+reclassify <- function(x, threshold) {
+  if ((x < threshold) | (is.na(x))) {
+    return(NA)
+  } else {
+    return(1)
+  }
+}

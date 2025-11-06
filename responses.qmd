@@ -71,43 +71,33 @@ if (crs_match) {
 }
 ```
 
-## Combine rasters
+## Create blackout mask
 ```{r}
+#| warning: false
 # merge rasters
 nl_feb7 = st_mosaic(nl_feb7_05, nl_feb7_06)
 nl_feb16 = st_mosaic(nl_feb16_05, nl_feb16_06)
-```
 
-
-
-## Find the difference in night-light for the two dates
-
-```{r}
 # Find the difference between the two rasters for both tiles
 nl_diff <- (nl_feb7 - nl_feb16)
 
-```
-
-
-```{r}
 # Create reclassification matrix
 source("class_function.R")
 
-
-# Apply reclassification function to a stars object
+# Apply reclassification function
 diff_rcf <- st_apply(nl_diff, MARGIN = c(1, 2), FUN = function(x) reclassify(x, threshold = 200))
 
-```
-
-## Vectorize blackout mask
-
-```{r}
+# Transform into vector for ease of merging with census data
 mask_vector = st_as_sf(diff_rcf)
+
+# Crop mask to City of Houston
+bounds <- st_bbox(c(xmin = -96.5, ymin = 29, xmax = -94.5, ymax = 30.5))
+houston_mask <- st_crop(mask_vector, bounds)
+
 ```
 
-## Crop blackout mask
-```{r}
 
-```
+
+
 
 

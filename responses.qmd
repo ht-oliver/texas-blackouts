@@ -83,13 +83,13 @@ nl_feb16 = st_mosaic(nl_feb16_05, nl_feb16_06)
 # Find the difference between the two rasters for both tiles
 nl_diff <- (nl_feb7 - nl_feb16)
 
-# Create reclassification matrix
+# Create reclassification matrix using external function
 source("class_function.R")
 
 # Apply reclassification function
 diff_rcf <- st_apply(nl_diff, MARGIN = c(1, 2), FUN = function(x) reclassify(x, threshold = 200))
 
-# Transform into vector for ease of merging with census data
+# Transform into vector for ease of merging with census and highway data
 mask_vector = st_as_sf(diff_rcf)
 
 # Crop mask to City of Houston
@@ -101,23 +101,58 @@ houston_mask <- st_crop(mask_vector, bounds)
 Now that we have our blackout mask, we need to eliminate any lights that are not from housing. In order to do this, we will remove the lights within 200m of all highways
 
 # 2) Texas Highways
-#### 2a) Read data
+#### 2a) Read data and create buffer
 ```{r}
 # Read in highway data, specify only highways
 highways <- st_read("data/gis_osm_roads_free_1.gpkg", 
         query = "SELECT * FROM gis_osm_roads_free_1 WHERE fclass='motorway'",
         quiet = TRUE)
-```
 
-#### 2b) Add a 200m buffer around highways
-```{r}
 # Current CRS degrees are 'degrees', we need them to be meters.
 # Reproject on WGS 84 / UTM Zone 15N
 highways <- st_transform(highways, 32615)
 
 hw_buffer <- st_buffer(highways, dist = 200)
+
 ```
 
+#### 2b) Reproject so mask and highway buffer have the same CRS and extent
+```{r}
+# Reproject
+houston_mask <- st_transform(houston_mask, crs = st_crs(hw_buffer))
+
+# Check to make sure CRS matches
+if (st_crs(houston_mask) == st_crs(hw_buffer)) {
+  message("CRS match")
+} else {
+  message("CRS do not match")
+  houston_mask <- st_transform(houston_mask, st_crs(hw_buffer))
+}
+
+# Crop buffer to be same size as the mask
+hw_buffer_cropped <- st_crop(hw_buffer, st_bbox(houston_mask))
+
+if (identical(st_bbox(hw_buffer_cropped), st_bbox(houston_mask))) {
+  message("Bounds match")
+} else {
+  warning("Bounds do not match")
+}
+
+```
+
+#### 2c) Remove highway buffer from Houston Blackout Mask
+```{r}
+# This will take forever if they're both vectors, so lets turn them back into rasters
+# Create empty raster with 10m resolution
+r <- rast(houston_mask, res = 10)
+# Rasterize. 
+blackout_rast <- rasterize(houston_mask, r)
+hw_rast <- rasterize(hw_buffer_cropped, r)
+
+# Subtract all areas within 200m of highways from blackout mask
+residential_blackouts <- mask(blackout_rast, hw_rast, maskvalues = 1, updatevalue = NA)
+
+```
 
 
 

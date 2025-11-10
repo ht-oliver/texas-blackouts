@@ -4,7 +4,7 @@ author: "Henry Oliver"
 format: html
 ---
 # Purpose
-The purpose of this anlaysis is to estimate the number of homes in Houston, Texas that experienced a blackout during Winter Storm Uri in February of 2021. 
+The purpose of this analysis is to estimate the number of homes in Houston, Texas that experienced a blackout during Winter Storm Uri in February of 2021. 
 
 # Load Packages
 ```{r}
@@ -101,7 +101,7 @@ houston_mask <- st_crop(mask_vector, bounds)
 Now that we have our blackout mask, we need to eliminate any lights that are not from housing. In order to do this, we will remove the lights within 200m of all highways
 
 # 2) Texas Highways
-#### 2a) Read data and create buffer
+#### 2a) Read data and create 200m buffer around highway vectors
 ```{r}
 # Read in highway data, specify only highways
 highways <- st_read("data/gis_osm_roads_free_1.gpkg", 
@@ -152,6 +152,61 @@ hw_rast <- rasterize(hw_buffer_cropped, r)
 # Subtract all areas within 200m of highways from blackout mask
 residential_blackouts <- mask(blackout_rast, hw_rast, maskvalues = 1, updatevalue = NA)
 
+```
+
+
+# 3) Estimate of homes that lost power
+
+#### 3a) Read in homes data, match CRS.
+```{r}
+# Read in homes data, specify residences
+homes <- st_read("data/gis_osm_buildings_a_free_1.gpkg",
+  query = "
+    SELECT *
+    FROM gis_osm_buildings_a_free_1
+    WHERE 
+      (type IS NULL AND name IS NULL)
+      OR type IN ('residential', 'apartments', 'house', 'static_caravan', 'detached')
+  ",
+  quiet = TRUE
+) %>% janitor::clean_names()
+
+# Check to make sure CRS matches. If not, match them
+if (st_crs(homes) == st_crs(residential_blackouts)) {
+  message("CRS match")
+} else {
+  message("CRS do not match, transforming CRS to st_crs(residential_blackouts)")
+  homes <- st_transform(homes, st_crs(residential_blackouts))
+}
+
+```
+
+Now we have a raster of all non-highway locations in Houston that experienced a blackout, and a shapefile with  a multipolygon for each residence in Houston. The CRS Matches. The next thing we need to do is find out how many of the homes fall within the blackout raster. In order to do this, we will need to turn the homes into points, turn the blackout raster back into a vector, and use st_intersects to find the number of points within polygons created by the blackout raster
+```{r}
+# Turn blackout raster into polygons where blackout is present, merge adjacent polygons
+blackout_polygons <- as.polygons(residential_blackouts == 1, dissolve = TRUE) %>% 
+  st_as_sf()
+
+# Turn homes into points
+homes_points <- st_centroid(homes) %>% 
+  st_as_sf()
+
+homes_points$in_blackout <- lengths(st_intersects(homes_points, blackout_polygons)) > 0
+
+plot1 <- tm_shape(blackout_polygons) +
+  tm_polygons(fill_alpha = "black", alpha = 0.5) +
+  tm_shape(homes_points) +
+  tm_symbols(
+    col = "in_blackout",
+    palette = c("grey70", "red"),
+    size = 0.05,
+    col_alpha = 0
+  ) +
+  tm_title("Homes within blackout areas")
+
+
+# Get number of homes that lost power
+sum(homes_points$in_blackout, na.rm = TRUE)
 ```
 
 

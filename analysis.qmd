@@ -1,0 +1,197 @@
+---
+title: "An Analysis of Power Loss in Houston Residences during Winter Storm Uri, February 2021"
+author: Henry Oliver
+format: html
+---
+## Purpose
+The purpose of this analysis is to estimate the number of homes in Houston, Texas that experienced a blackout during Winter Storm Uri in February of 2021, and investigate which census blocks lost power.
+
+## Background:
+From February 13-17, 2021, an uncharacteristic arctic air mass swept across the state of Texas, bringing record-breaking low temperatures and unprecedented amounts of snow and ice across the state. The extreme and unexpected cold caused a surge in electricity demand which prompted a catastrophic failure of the Texas power grid. It's estimated that millions of homes and businesses lost power as a result of the storm.
+
+## Workflow:
+
+### 1) Nightlights
+
+
+### 2) Houston Residences
+
+
+### 3) Socioeconomic Correlations
+
+
+
+
+
+```{r}
+#| message: false
+library(tidyverse) 
+library(janitor) # data cleaning
+library(sf) # vector handling
+library(terra) # raster handling
+library(tidyverse)
+library(tmap) # map making
+library(spData) # spatial data
+library(spDataLarge) # spatial data
+library(stars) # raster handling
+library(raster) # raster handling
+
+```
+
+## 1) Houston Nightlights
+
+#### 1a) Import data - standardize dimensions, resolution and CRS
+```{r}
+#| message: false
+# nightlight data for February 7, tile h08v05
+nl_feb7_05 <- read_stars("data/VNP46A1/VNP46A1.A2021038.h08v05.001.2021039064328.tif")
+
+# nightlight data for February 7, tile h08v06
+nl_feb7_06 <- read_stars("data/VNP46A1/VNP46A1.A2021038.h08v06.001.2021039064329.tif")
+
+# nightlight data for February 16, tile h08v05
+nl_feb16_05 <- read_stars("data/VNP46A1/VNP46A1.A2021047.h08v05.001.2021048091106.tif")
+
+# nightlight data for February 16, tile h08v06
+nl_feb16_06 <- read_stars("data/VNP46A1/VNP46A1.A2021047.h08v06.001.2021048091105.tif")
+
+# Check dimensions
+if (all(dim(nl_feb7_06) == dim(nl_feb16_05)) && 
+    all(dim(nl_feb7_06) == dim(nl_feb16_06)) &&
+    all(dim(nl_feb7_06) == dim(nl_feb7_05))) {
+  message("All rasters have the same dimensions")
+} else {
+  message("Rasters do not have the same dimensions")
+}
+
+# Check resolution
+if (all(st_res(nl_feb7_06) == st_res(nl_feb16_05)) && 
+    all(st_res(nl_feb7_06) == st_res(nl_feb16_06)) &&
+    all(st_res(nl_feb7_06) == st_res(nl_feb7_05))) {
+  message("All rasters have the same resolution")
+} else {
+  message("Rasters do not have the same resolution")
+}
+
+
+# Compare CRS of rasters
+rasters <- list(nl_feb7_05, nl_feb7_06, nl_feb16_05, nl_feb16_06)
+
+crs_match <- all(sapply(rasters[-1], function(x) compareCRS(rasters[[1]], x)))
+
+if (crs_match) {
+  message ("All Rasters have the same CRS")
+} else {
+  message("All Rasters do NOT have the same CRS")
+}
+
+# Save reference resolution
+res_reference <- st_res(nl_feb7_05)
+crs_reference <- st_crs(nl_feb7_05)
+
+
+```
+
+#### 1b) Visualize night light intensity before and after the storm
+```{r}
+#| warning: false
+
+# Create bounds
+bounds <- st_bbox(c(xmin = -96.5, ymin = 29, xmax = -94.5, ymax = 30.5), crs = st_crs(crs_reference))
+
+# merge rasters and crop to Houston bounds
+nl_feb7 = st_mosaic(nl_feb7_05, nl_feb7_06) %>%
+  st_warp(crs = crs_reference, cellsize = res_reference, use_gdal = TRUE) %>% 
+  st_crop(bounds)
+
+nl_feb16 = st_mosaic(nl_feb16_05, nl_feb16_06) %>% 
+  st_warp(crs = crs_reference, cellsize = res_reference, use_gdal = TRUE) %>% 
+  st_crop(bounds)
+
+feb7_map <- tm_shape(nl_feb7) +
+  tm_raster(col.scale = tm_scale_continuous(
+      values = "inferno",
+      limits = c(0, 2000)),
+      col.legend = tm_legend(title = "Luminance") ) +
+  tm_title(text = "February 7, 2021", size = 1) +
+  tm_compass() +
+  tm_scalebar(position = c(0.25, 0))
+      
+
+feb16_map <- tm_shape(nl_feb16) +
+  tm_raster(col.scale = tm_scale_continuous(
+      values = "inferno",
+      limits = c(0, 2000)),
+      col.legend = tm_legend(title = "Luminance")) +
+  tm_title(text = "February 16, 2021", size = 1) +
+  tm_compass() +
+  tm_scalebar(position = c(0.25, 0))
+
+tmap_arrange(feb7_map,feb16_map)
+
+```
+## Interpretation:
+  The figure above shows luminance in (units). Note multiple patches of darkness in NW and NE Houston. 
+
+
+```{r}
+#| warning: False
+
+# Find the difference between the two rasters for both tiles
+nl_diff <- (nl_feb7 - nl_feb16)
+
+# Create reclassification matrix using external function
+source("class_function.R")
+
+# Apply reclassification function
+diff_rcf <- st_apply(nl_diff, MARGIN = c(1, 2), FUN = function(x) reclassify(x, threshold = 200))
+
+# Crop mask to Houston
+houston_mask <- st_crop(diff_rcf, bounds)
+
+```
+
+#### 1c) Remove highways from mask
+```{r}
+#| warning: false
+# Read in highway data, specify only highways
+highways <- st_read("data/gis_osm_roads_free_1.gpkg", 
+        query = "SELECT * FROM gis_osm_roads_free_1 WHERE fclass='motorway'",
+        quiet = TRUE)
+
+# Reproject to Texas South Central (ftUS)
+highways <- st_transform(highways, crs= "EPSG:2278")
+
+# Buffer by 200m = 656.168 ft. Reproject to old CRS
+hw_buffer <- st_buffer(highways, dist = 656.168) %>% 
+  st_transform(crs = st_crs(houston_mask)) %>% 
+  vect() # Turn into a Spatial Vector
+
+# Turn houston mask into a SpatRaster
+houston_mask_terra <- rast(houston_mask)
+
+# Set cells within buffer to NA, crop to Houston bounds
+residential_blackouts <- mask(houston_mask_terra, hw_buffer, inverse = TRUE) %>% 
+  crop(bounds)
+
+
+# Check if highway mask reduced values
+print(paste(
+    "Highway mask removed", 
+   round( ((sum(values(houston_mask_terra) == 1, na.rm = TRUE) -
+          sum(values(residential_blackouts) == 1, na.rm = TRUE)) /
+       sum(values(houston_mask_terra) == 1, na.rm = TRUE) * 100)),
+   "% of blackout values"))
+```
+
+
+# 2) Estimate of homes that lost power
+
+Now we have a raster of all non-highway locations in Houston that experienced a blackout, and a shapefile with  a multipolygon for each residence in Houston. The next thing we need to do is find out how many of the homes fall within the blackout raster. In order to do this, we will need to turn the homes into points, turn the blackout raster back into a vector, and use st_intersects to find the number of points within polygons created by the blackout raster.
+```{r}
+
+
+
+
+```
+

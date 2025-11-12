@@ -29,7 +29,7 @@ The purpose of this analysis is to estimate the number of homes in Houston, Texa
 
 There are 4 datasets utilized in this analysis. They are listed below. All four can be accessed at the following link: https://drive.google.com/file/d/1bTk62xwOzBqWmmT791SbYbHxnCdjmBtw/view
 
-1) Nightlight Data
+##### 1) Nightlight Data
 
   VNP46A1.A2021038.h08v05.001.2021039064328.tif
   VNP46A1.A2021038.h08v06.001.2021039064329.tif
@@ -37,14 +37,14 @@ There are 4 datasets utilized in this analysis. They are listed below. All four 
   VNP46A1.A2021047.h08v06.001.2021048091105.tif
 
 
-2) Roads and Houses
+##### 2) Roads and Houses
 gis_osm_roads_free_1.gpkg
 gis_osm_buildings_a_free_1.gpkg
 
-3) Census Blocks
+##### 3) Census Blocks
 ACS_2019_5YR_TRACT_48.gdb
 
-4) Income
+##### 4) Income
 ACS_2019_5YR_TRACT_48_TEXAS
 
 

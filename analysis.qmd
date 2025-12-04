@@ -23,7 +23,9 @@ The number and location of census blocks affected by blackouts are estimated bas
 
 
 #### 4) Socioeconomic Correlations
-Correlations between blackouts and median income per census block are calculated based on the overlap of blackout locations and median income per census block provided by the U.S. Census Bureau's ACS<sup>4<sup> . Additional data access information can be found in the "Data Access" section of the README in this project repository.
+Correlations between blackouts and median income per census block are calculated based on the overlap of blackout locations and median income per census block provided by the U.S. Census Bureau's ACS<sup>4<sup>
+
+Additional data access information can be found in the "Data Access" section of the README in this project repository.
 
 
 
@@ -128,7 +130,7 @@ feb16_map <- tm_shape(nl_feb16) +
 
 tmap_arrange(feb7_map,feb16_map)
 ```
-  *The figure above shows luminance in (units) in Houston, TX before and after Winter storm Uri. Note multiple patches of darkness in NW and NE Houston.*
+  *The figure above shows luminance in Houston, TX before and after Winter storm Uri. Note multiple patches of darkness in NW and NE Houston.*
 
 
 ```{r}
@@ -227,6 +229,28 @@ blackout_homes <- sum(homes_points$in_blackout, na.rm = TRUE)
 # Print
 print(paste0("approximately ", blackout_homes, " residential buildings in Houston, Texas lost power during Winter Storm Uri in February, 2021"))
 ```
+##### 2c) Visualize Blackout Home Locations
+
+```{r}
+#| message: false
+# Filter home_points to only those which experienced a blackout
+blackout_homes <- homes_points %>% 
+  filter(in_blackout == TRUE) %>%
+  mutate(label = "Homes Which Experienced Blackout")  # Create a constant variable for the legend
+
+tm_basemap(server = "https://tile.openstreetmap.org/{z}/{x}/{y}.png", alpha = 1) +
+tm_shape(blackout_homes) +
+  tm_dots(fill = "label",  # Map to the new variable
+          fill.scale = tm_scale(values = "#C0369d"),  # Set the color
+          size = 0.1,
+          fill.legend = tm_legend(title = "Legend")) +
+  tm_title(text = "Houston Homes that Experienced Blackouts During Winter Storm Uri") +
+  tm_compass() +
+  tm_scalebar(position = c("bottom", "left"))
+
+```
+
+
 
 # 3) Map of census tracts that lost power
 
@@ -253,8 +277,12 @@ blackout_blocks <- census %>%
 tm_shape(census) +
   tm_polygons(col = "gray", border.col = "white") +
 tm_shape(blackout_blocks) +
-  tm_polygons(col = "#C0369D", alpha = 0.7) +
+  tm_polygons(col = "#C0369D", alpha = 0.7, border.col = "white") +
   tm_title(text = "Census Tracts that Experienced Blackouts") +
+  tm_add_legend(type = "fill", 
+                col = c("gray", "#C0369D"),
+                labels = c("No blackout", "Experienced blackout"),
+                title = "") +
   tm_compass() +
   tm_scalebar()
 
